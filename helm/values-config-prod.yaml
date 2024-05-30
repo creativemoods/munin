@@ -1,0 +1,21 @@
+priorityClass:
+  enabled: true
+  name: business-app-non-critical
+
+image:
+  repository: ...
+  pullPolicy: IfNotPresent
+  pullSecretsName: sec-cmharbor
+
+munin:
+  nodes: "..."
+  tz: "..."
+  ressourceRequest:
+    memory: 16M #16 Mo RAM
+    cpu: 50m # 0.05 core de CPU
+    ephemeralStorage: 512M #512 Mo de storage non persistent (en + de ce qui est dans l'image)
+  ressourceLimit:
+    memory: 512M #128 Mo RAM, au delà eviction
+    cpu: 500m # 1 core de CPU, au delà CPU Throttle
+    ephemeralStorage: 512M #512 Mo de storage non persistent  (en + de ce qui est dans l'image), au delà éviction
+  terminationGracePeriodSeconds: 60

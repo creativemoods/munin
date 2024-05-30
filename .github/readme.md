@@ -11,6 +11,25 @@
 
 </div></h1>
 
+This fork of https://github.com/dockur/munin is adapted for running inside Kubernetes:
+
+```bash
+helm secrets upgrade munin . --install --atomic --cleanup-on-fail --values=values-config-prod.yaml --values=values-secrets-prod.yaml -n munin
+```
+It has the following improvements:
+* a Helm directory with an example Helm chart for deploying the image inside a vanilla K8S
+* Possibility to change port from 80 to e.g. 8080 in order to run rootless
+* Possibility to disable IPv6 in nginx if host doesn't have IPv6
+* Possibility to pass timezone as build arg
+* Creates a user and group munin (1000 / 1000) for running rootless
+* Removal of sudo
+* Use of supercronic instead of crond
+* Removal of /etc/munin/plugin-conf.d volume
+* Configuration of rootless nginx
+
+
+
+
 Container image for a Munin master server, optimized for a large number of nodes in an effective manner.
 
 * `rrdcached` is used to be able to handle a large number of nodes

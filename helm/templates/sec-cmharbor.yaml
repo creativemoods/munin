@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/dockerconfigjson
+metadata:
+  name: sec-cmharbor
+  namespace: {{ .Release.Namespace }}
+data:
+  .dockerconfigjson: {{ required ".Values.dockerConfigJson entry is required!" .Values.dockerConfigJson }}

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-munin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "munin.labels" . | nindent 4 }}
+data:
+  NODES: "{{ required ".Values.munin.nodes entry is required!" .Values.munin.nodes }}"
+  TZ: "{{ required ".Values.munin.tz entry is required!" .Values.munin.tz }}"

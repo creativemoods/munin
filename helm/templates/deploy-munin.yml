@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: deploy-munin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "munin.labels" . | nindent 4 }}
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: munin
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+     maxUnavailable: 25%
+
+  template:
+    metadata:
+      labels:
+        app: munin
+        {{- include "munin.labels" . | nindent 8 }}
+#      annotations:
+#        checksum/configmap:  include (print $.Chart.Name "/templates/site-configmap.yml") . | sha256sum 
+#        checksum/secret:  include (print $.Chart.Name "/templates/site-secret.yml") . | sha256sum 
+    spec:
+      imagePullSecrets:
+      - name: {{ required ".Values.image.pullSecretsName entry is required!" .Values.image.pullSecretsName }}
+      {{- if .Values.priorityClass.enabled }}
+      priorityClassName: {{ required ".Values.priorityClass.name entry is required!" .Values.priorityClass.name }}
+      {{- end }}
+      automountServiceAccountToken: false
+      containers:
+      - image: {{ required ".Values.image.repository entry is required!" .Values.image.repository }}:{{ required ".Chart.AppVersion entry is required!" .Chart.AppVersion }}
+        imagePullPolicy: {{ required ".Values.image.pullPolicy entry is required!" .Values.image.pullPolicy }}
+        name: munin
+
+        envFrom:
+          - configMapRef:
+              name: cm-munin
+#          - secretRef:
+#              name: sec-site-secrets
+
+        ports:
+        - containerPort: 8080
+          name: munin
+
+        startupProbe:
+          tcpSocket:
+            port: 8080
+          failureThreshold: 30
+          periodSeconds: 10
+
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 30
+          failureThreshold: 3 #Default 3
+          initialDelaySeconds: 0
+
+        readinessProbe:
+          httpGet:
+            path: /munin/
+            port: 8080
+            scheme: "HTTP"
+          periodSeconds: 10
+          failureThreshold: 3
+          initialDelaySeconds: 0
+          timeoutSeconds: 5
+
+        resources:
+          requests:
+            memory: "{{ required ".Values.munin.ressourceRequest.memory entry is required!" .Values.munin.ressourceRequest.memory }}"
+            cpu: "{{ required ".Values.munin.ressourceRequest.cpu entry is required!" .Values.munin.ressourceRequest.cpu }}"
+            ephemeral-storage: "{{ required ".Values.munin.ressourceRequest.ephemeralStorage entry is required!" .Values.munin.ressourceRequest.ephemeralStorage }}"
+          limits:
+            memory: "{{ required ".Values.munin.ressourceLimit.memory entry is required!" .Values.munin.ressourceLimit.memory }}"
+            cpu: "{{ required ".Values.munin.ressourceLimit.cpu entry is required!" .Values.munin.ressourceLimit.cpu }}"
+            ephemeral-storage: "{{ required ".Values.munin.ressourceLimit.ephemeralStorage entry is required!" .Values.munin.ressourceLimit.ephemeralStorage }}"
+
+        volumeMounts:
+        - name: munin-conf
+          mountPath: /etc/munin/munin-conf.d
+          # To avoid lost+found
+          subPath: muninconf
+        - name: munin-lib
+          mountPath: /var/lib/munin
+        - name: munin-log
+          mountPath: /var/log/munin
+
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+      terminationGracePeriodSeconds: {{ required ".Values.munin.terminationGracePeriodSeconds entry is required!" .Values.munin.terminationGracePeriodSeconds }}
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: "Always"
+        seccompProfile:
+          type: RuntimeDefault
+
+      #https://medium.com/geekculture/kubernetes-distributing-pods-evenly-across-cluster-c6bdc9b49699
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: munin
+
+      volumes:
+      - name: munin-conf
+        persistentVolumeClaim:
+          claimName: pvc-munin-conf
+      - name: munin-lib
+        persistentVolumeClaim:
+          claimName: pvc-munin-lib
+      - name: munin-log
+        persistentVolumeClaim:
+          claimName: pvc-munin-log

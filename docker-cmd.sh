@@ -1,32 +1,11 @@
 #!/bin/bash
 set -eu
 
-echo "Munin for Docker v$(</run/version)..."
-
 NODES="${NODES:-}"
 
-# Set timezone
-if ! [[ ! -z "$TZ" && -f "/usr/share/zoneinfo/$TZ" ]]; then
-  TZ="UTC"
-fi
-
-cp "/usr/share/zoneinfo/$TZ" /etc/localtime
-echo "$TZ" > /etc/timezone
-
-# Fix ownership
-chown munin:munin \
-  /var/log/munin /run/munin /var/lib/munin /var/lib/munin/cgi-tmp \
-  /etc/munin/munin-conf.d /etc/munin/plugin-conf.d
-
-chmod 755 /usr/share/webapps/munin/html
-chown -R munin:munin /usr/share/webapps/munin/html
-
-# Prepare for rrdcached
-sudo -u munin -- mkdir -p /var/lib/munin/rrdcached-journal
-chown munin:munin /var/lib/munin/rrdcached-journal
-
-# Start rrdcached
-sudo -u munin -- /usr/sbin/rrdcached \
+echo "Starting rrdcached..."
+mkdir -p /var/lib/munin/rrdcached-journal
+/usr/sbin/rrdcached \
   -p /run/munin/rrdcached.pid \
   -B -b /var/lib/munin/ \
   -F -j /var/lib/munin/rrdcached-journal/ \
@@ -54,18 +33,23 @@ EOF
 done
 
 # Run once before we start fcgi
-sudo -u munin -- /usr/bin/munin-cron munin
+echo "Running munin-cron once..."
+/usr/bin/munin-cron munin
 
 # Spawn fast cgi process for generating graphs on the fly
+echo "Starting spawn-fcgi..."
 spawn-fcgi -s /var/run/munin/fastcgi-graph.sock -U nginx -u munin -g munin -- \
   /usr/share/webapps/munin/cgi/munin-cgi-graph
 
 # Spawn fast cgi process for generating html on the fly
+echo "Starting spawn-fcgi..."
 spawn-fcgi -s /var/run/munin/fastcgi-html.sock -U nginx -u munin -g munin -- \
   /usr/share/webapps/munin/cgi/munin-cgi-html
 
-# Munin and logrotate runs in cron, start cron
-crond
+# Supercronic
+echo "Starting supercronic..."
+/usr/local/bin/supercronic /etc/crontabs/munin &
 
 # Start web-server
+echo "Starting nginx..."
 nginx

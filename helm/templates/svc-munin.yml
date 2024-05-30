@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-munin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "munin.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 8080
+  selector:
+    app: munin
+  clusterIP: None
